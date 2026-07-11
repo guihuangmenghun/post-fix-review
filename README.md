@@ -1,4 +1,6 @@
-﻿# post-fix-review
+﻿[**中文**](README.zh-CN.md) | English
+
+# post-fix-review
 
 > **Every bug fix is a learning opportunity. The fix solves the immediate problem; the review prevents the entire class of problems from recurring.**
 
