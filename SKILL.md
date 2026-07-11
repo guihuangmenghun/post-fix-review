@@ -1,4 +1,4 @@
----
+﻿---
 name: post-fix-review
 description: Post-fix structured self-reflection for development agents. MUST be invoked after fixing any bug, adding validation logic, or writing utility/helper classes. Guides the agent through root cause analysis, anti-pattern identification, and experience extraction to prevent recurrence. Trigger words: bug fix, post-fix, self-reflection, lessons learned, anti-pattern, code review after fix.
 ---
@@ -52,6 +52,7 @@ Map the root cause to a general anti-pattern category:
 | Default Masking | Default values hide the real problem | Returns default 70 when config says 60, caller can't tell |
 | Optimistic Null | Null treated as "not needed" instead of "error" | `if (data != null) { process }` — null data passes through |
 | Cascade Failure | One silent failure triggers another | Empty catch → null param → silent skip → validation bypassed |
+| Separation of Concerns | Trigger config contains execution logic | Copying skill's 5 questions into AGENTS.md instead of just saying 'call it' |
 
 Output format:
 ```
@@ -140,6 +141,64 @@ Present the final summary as:
 - [ ] Checklist item added (if applicable)
 ```
 
+
+## Integration Guide (How to Wire This Skill)
+
+> **Lesson learned from real usage:** We initially wrote config templates that included all 5 questions, requiring users to copy them into AGENTS.md. This was wrong. The correct separation is:
+
+### Correct Pattern (Separation of Concerns)
+
+| Layer | Responsibility | Content |
+|---|---|---|
+| **Trigger Config** (AGENTS.md / .cursorrules) | When to call | "Invoke /post-fix-review after fixing bugs" |
+| **Skill Content** (this file) | What to do | The 5 questions, anti-pattern library, output format |
+
+The trigger config tells the agent **when** to invoke the skill. The skill itself defines **what** happens during invocation. Never mix these two layers.
+
+### ✅ Correct: Config Template for AGENTS.md
+
+`markdown
+## Post-Fix Review (Mandatory)
+
+After fixing ANY bug (P0-P3), the agent MUST invoke the /post-fix-review skill
+before moving to the next task.
+This skill guides structured self-reflection: root cause analysis, anti-pattern
+identification, generalization, and knowledge capture.
+Do NOT skip this step.
+`
+
+Note: The config is **3 lines**. It says "call the skill" — the skill handles the rest.
+
+### ❌ Anti-Pattern: Copying Skill Content into Config
+
+`markdown
+## Post-Fix Review (Mandatory)
+
+After fixing ANY bug, answer these 5 questions:
+1. Root Cause: What went wrong?
+2. Anti-Pattern: What class of mistake?
+3. Generalization: Can this be universal?
+4. Specification: Should this become a standard?
+5. Memory Update: What to remember?
+`
+
+**Why this is wrong:**
+- Users copy 15+ lines instead of 3 lines
+- Skill content updates don't propagate to user configs
+- Violates separation of concerns: trigger config now contains execution logic
+- The Skill exists precisely so users don't need to know the 5 questions
+
+### The Meta-Lesson
+
+This anti-pattern is itself an instance of a broader principle:
+
+> **When building tools for others, separate "how to invoke" from "what happens inside".**
+> Documentation that leaks internal logic into the caller's configuration creates
+> maintenance burden and coupling. The caller should know the interface, not the implementation.
+
+This applies to: Skill configs, API wrappers, CLI tools, middleware setup — any layer where invocation and implementation could be conflated.
+
+---
 ## Anti-Pattern Reference Library
 
 Common anti-patterns to check against during Q2:
