@@ -153,26 +153,23 @@ The fix produced three universal coding prohibitions now enforced via this skill
 
 ## Ensure This Skill Gets Called
 
-> **To ensure this skill is invoked every time a bug is fixed, you MUST explicitly add the following to your agent configuration:**
+> **To ensure this skill is invoked every time a bug is fixed, add a mandatory trigger rule to your agent configuration:**
 
 **AGENTS.md / .cursorrules / .clinerules:**
 
 ```markdown
 ## Post-Fix Review (Mandatory)
 
-After fixing ANY bug (P0-P3), the agent MUST perform structured self-reflection
-by answering these 5 questions before moving to the next task:
-
-1. Root Cause: What actually went wrong? (code / design / process level)
-2. Anti-Pattern: What class of mistake does this represent?
-3. Generalization: Can this become a universal coding rule?
-4. Specification: Should this be written into coding standards?
-5. Memory Update: What should be remembered for future sessions?
-
-Output a summary table. If the anti-pattern is reusable, propose a new coding standard.
+After fixing ANY bug (P0-P3), the agent MUST invoke the `/post-fix-review` skill
+before moving to the next task.
+This skill guides structured self-reflection: root cause analysis, anti-pattern
+identification, generalization, and knowledge capture.
+Do NOT skip this step.
 ```
 
-Without this explicit instruction, agents will fix bugs and immediately move on — the same pattern **will** recur.
+The 5 reflection questions are defined inside the Skill itself — your agent config only needs to say **"call it"**. The Skill handles the rest.
+
+Without this explicit trigger, agents will fix bugs and immediately move on — the same pattern **will** recur.
 
 ---
 

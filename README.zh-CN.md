@@ -44,17 +44,17 @@ git clone https://github.com/guihuangmenghun/post-fix-review.git
 
 将 `SKILL.md` 复制到你 Agent 的 skill/plugin 目录。
 
-### 推荐：在 AGENTS.md 中强制引用
+### 推荐：在 AGENTS.md 中配置触发规则
 
-在你项目的 `AGENTS.md` 中加入以下内容，让 Skill 成为强制步骤：
+在你项目的 `AGENTS.md` 中加入触发规则，让 Agent 知道何时调用这个 Skill：
 
 ```markdown
 ## 修复后自省（强制）
 
-Agent 在修复任何 Bug 后必须调用 /post-fix-review 进行结构化自省。
-确保每次修复都产出可复用的知识。
+Agent 在修复任何 Bug 后必须调用 /post-fix-review Skill，
+完成后才能进入下一个任务。Skill 会引导完成全部自省流程。
 
-**强制触发时机：**
+**触发条件：**
 1. 修复任何 Bug 后（P0-P3）
 2. 新增校验/拦截逻辑后
 3. 编写工具类/Helper 后
@@ -153,25 +153,22 @@ buildFlowContext() 空 catch 吞掉异常
 
 ## 确保精准触发
 
-> **为了保证每次出现问题或 Bug 时能够精准调用这个 Skill，你需要在 Agent 配置文件中显式写明以下规则：**
+> **为了保证每次出现问题或 Bug 时能够精准调用这个 Skill，你需要在 Agent 配置文件中显式写明调用规则：**
 
 **AGENTS.md / .cursorrules / .clinerules：**
 
 ```markdown
 ## 修复后自省（强制）
 
-修复任何 Bug（P0-P3）后，Agent 必须在进入下一个任务前回答以下 5 个问题：
-
-1. 根因分析：到底哪里出了问题？（代码级 / 设计级 / 流程级）
-2. 反模式识别：这属于哪类错误？
-3. 通用化提炼：能否变成通用编码规则？
-4. 规范提取：是否该写入编码规范？
-5. 记忆更新：需要记住什么？
-
-输出总结表格。如果反模式可复用，提议新增编码规范。
+修复任何 Bug（P0-P3）后，Agent 必须调用 `/post-fix-review` Skill 进行结构化自省，
+完成后才能进入下一个任务。
+该 Skill 会引导 Agent 完成根因分析、反模式识别、通用化提炼和知识沉淀。
+禁止跳过此步骤。
 ```
 
-没有这条显式指令，Agent 修完 Bug 就会直接跳到下一个任务 —— 同类问题**一定会**再次出现。
+5 个自省问题定义在 Skill 内部 —— 你的 Agent 配置文件只需要写明 **"调用它"**，Skill 会引导完成剩余流程。
+
+没有这条显式触发规则，Agent 修完 Bug 就会直接跳到下一个任务 —— 同类问题**一定会**再次出现。
 
 ---
 
