@@ -148,6 +148,34 @@ The fix produced three universal coding prohibitions now enforced via this skill
 | Knowledge lost between sessions | Memory system retains lessons |
 | No coding standard updates | AGENTS.md evolves from real bugs |
 
+
+---
+
+## Ensure This Skill Gets Called
+
+> **To ensure this skill is invoked every time a bug is fixed, you MUST explicitly add the following to your agent configuration:**
+
+**AGENTS.md / .cursorrules / .clinerules:**
+
+```markdown
+## Post-Fix Review (Mandatory)
+
+After fixing ANY bug (P0-P3), the agent MUST perform structured self-reflection
+by answering these 5 questions before moving to the next task:
+
+1. Root Cause: What actually went wrong? (code / design / process level)
+2. Anti-Pattern: What class of mistake does this represent?
+3. Generalization: Can this become a universal coding rule?
+4. Specification: Should this be written into coding standards?
+5. Memory Update: What should be remembered for future sessions?
+
+Output a summary table. If the anti-pattern is reusable, propose a new coding standard.
+```
+
+Without this explicit instruction, agents will fix bugs and immediately move on — the same pattern **will** recur.
+
+---
+
 ## Compatibility
 
 Works with any AI coding agent that supports custom instructions or skills:
