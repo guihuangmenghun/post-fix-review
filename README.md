@@ -4,7 +4,7 @@
 
 > **Every bug fix is a learning opportunity. The fix solves the immediate problem; the review prevents the entire class of problems from recurring.**
 
-A [Qoder CN](https://qoder.cn) Skill that guides AI coding agents through structured self-reflection after fixing bugs. Transforms individual fixes into reusable project knowledge — automatically.
+A Skill that guides AI coding agents through structured self-reflection after fixing bugs. Transforms individual fixes into reusable project knowledge — automatically.
 
 ## The Problem
 
@@ -36,13 +36,13 @@ Each question has a defined output format, and the skill produces concrete actio
 
 ## Installation
 
-### For Qoder CN Users
+### Manual Install
 
 ```bash
-git clone https://github.com/guihuangmenghun/post-fix-review.git ~/.qoder-cn/skills/post-fix-review
+git clone https://github.com/guihuangmenghun/post-fix-review.git
 ```
 
-Or manually copy `SKILL.md` to `~/.qoder-cn/skills/post-fix-review/SKILL.md`.
+Copy `SKILL.md` into your agent's skill/plugin directory.
 
 ### Recommended: Add to AGENTS.md
 
@@ -150,8 +150,14 @@ The fix produced three universal coding prohibitions now enforced via this skill
 
 ## Compatibility
 
-- **Qoder CN Desktop IDE** - full support
-- **Any Qoder-compatible agent** - works with any agent supporting the Skill protocol
+Works with any AI coding agent that supports custom instructions or skills:
+
+- **Qoder CN** - native Skill support (`/post-fix-review`)
+- **Cursor** - add to `.cursorrules` or custom commands
+- **Windsurf** - add to `AGENTS.md` or Cascade rules
+- **GitHub Copilot** - add to `.github/copilot-instructions.md`
+- **Cline** - add to `.clinerules`
+- **Any agent** - paste the 5 questions into your workflow
 - **Language agnostic** - anti-patterns apply to Java, Python, JavaScript, Go, etc.
 - **Project agnostic** - no project-specific assumptions
 

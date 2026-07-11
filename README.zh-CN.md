@@ -2,7 +2,7 @@
 
 > **每次 Bug 修复都是一次学习机会。修复解决了眼前的 Bug，自省则阻止整类问题再次发生。**
 
-一个 [Qoder CN](https://qoder.cn) Skill，引导 AI 编程助手在修复 Bug 后进行结构化自省。将单次修复转化为可复用的项目知识 —— 自动化。
+一个通用 Skill，引导 AI 编程助手在修复 Bug 后进行结构化自省。将单次修复转化为可复用的项目知识 —— 自动化。
 
 [English](README.md) | **中文**
 
@@ -36,13 +36,13 @@ Q5: 记忆更新     -> Agent 该记住什么？
 
 ## 安装
 
-### Qoder CN 用户
+### 手动安装
 
 ```bash
-git clone https://github.com/guihuangmenghun/post-fix-review.git ~/.qoder-cn/skills/post-fix-review
+git clone https://github.com/guihuangmenghun/post-fix-review.git
 ```
 
-或手动复制 `SKILL.md` 到 `~/.qoder-cn/skills/post-fix-review/SKILL.md`。
+将 `SKILL.md` 复制到你 Agent 的 skill/plugin 目录。
 
 ### 推荐：在 AGENTS.md 中强制引用
 
@@ -150,8 +150,14 @@ buildFlowContext() 空 catch 吞掉异常
 
 ## 兼容性
 
-- **Qoder CN 桌面端 IDE** —— 完全支持
-- **任何 Qoder 兼容 Agent** —— 支持 Skill 协议的 Agent 均可使用
+适用于任何支持自定义指令或 Skill 的 AI 编程助手：
+
+- **Qoder CN** —— 原生 Skill 支持（`/post-fix-review`）
+- **Cursor** —— 添加到 `.cursorrules` 或自定义命令
+- **Windsurf** —— 添加到 `AGENTS.md` 或 Cascade 规则
+- **GitHub Copilot** —— 添加到 `.github/copilot-instructions.md`
+- **Cline** —— 添加到 `.clinerules`
+- **任何 Agent** —— 将 5 个问题直接嵌入你的工作流
 - **语言无关** —— 反模式适用于 Java、Python、JavaScript、Go 等
 - **项目无关** —— Skill 定义中无任何项目特定假设
 
