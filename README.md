@@ -1,4 +1,4 @@
-﻿[**中文**](README.zh-CN.md) | English
+[**中文**](README.zh-CN.md) | English
 
 # post-fix-review
 
@@ -34,6 +34,10 @@ Each question has a defined output format, and the skill produces concrete actio
 - **Memory updates** — persistent knowledge stored for future sessions
 - **Anti-pattern classification** — maps the bug to a known category
 
+Built-in workflow guards:
+- **Exemption rule** — purely cosmetic changes (typos, formatting, comment-only) may skip the review with a one-line reason
+- **Merge before create** — Q5 searches existing memories first and prefers merging over duplicating, preventing memory bloat
+
 ## Installation
 
 ### Manual Install
@@ -60,6 +64,8 @@ structured self-reflection. This ensures every fix produces reusable knowledge.
 3. After writing utility/helper classes
 4. After discovering silent failures
 ```
+
+The template lists the four most common triggers; the Skill itself defines the full trigger list (including fixing test false positives) and the exemption rule.
 
 ## Usage
 
@@ -120,7 +126,15 @@ The skill includes a built-in reference library of common anti-patterns:
 | **Implicit type coercion** | String '60' vs Integer 60 vs Long 60L |
 | **Snapshot staleness** | Cached data doesn't reflect current state |
 
-## Real-World Origin
+### Cross-Cutting Concern Failures
+| Pattern | Description |
+|---|---|
+| **Wrapper Bypass** | Native fetch/XHR/window.open skips the unified HTTP wrapper, dropping auth/logging |
+| **New-tab direct link** | URL opened in a new tab where headers can't be attached; use authenticated fetch -> blob -> objectURL |
+
+## Real-World Origins
+
+### Case 1: Silent Age-Validation Bypass (backend, origin of this skill)
 
 This skill was born from a real production bug in an insurance platform:
 
@@ -138,6 +152,15 @@ buildFlowContext() empty catch swallowed exception
 Three anti-patterns combined: Empty Catch + Silent Skip + Default Masking.
 
 The fix produced three universal coding prohibitions now enforced via this skill.
+
+### Case 2: File Preview Bypasses Auth (frontend, Wrapper Bypass)
+
+**The bug:** A file-preview feature (popup text, new-tab PDF) called native `fetch(url)` / `window.open(url)`, bypassing the unified request wrapper — requests went out with no `Authorization` header.
+
+**The review outcome:**
+- **Anti-pattern:** Wrapper Bypass — the wrapper owns the auth cross-cutting concern; the special path leaked it.
+- **Generalized rule:** any frontend request bypassing the unified HTTP wrapper must explicitly re-attach auth; when a new-tab link can't carry headers, use authenticated fetch -> blob -> objectURL.
+- **Spec level:** memory only; a new memory was created.
 
 ## How It Improves Agent Quality
 

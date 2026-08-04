@@ -1,4 +1,4 @@
-﻿---
+---
 name: post-fix-review
 description: Post-fix structured self-reflection for development agents. MUST be invoked after fixing any bug, adding validation logic, or writing utility/helper classes. Guides the agent through root cause analysis, anti-pattern identification, and experience extraction to prevent recurrence. Trigger words: bug fix, post-fix, self-reflection, lessons learned, anti-pattern, code review after fix.
 ---
@@ -11,6 +11,8 @@ A structured self-reflection workflow that development agents execute after comp
 
 **Core principle:** Every bug fix is a learning opportunity. The fix solves the immediate problem; the review prevents the entire class of problems from recurring.
 
+**Output language:** Respond in the user's conversation language. The Chinese labels in the templates below are canonical examples, not a language requirement.
+
 ## When to Use (Mandatory Triggers)
 
 Agent MUST invoke this skill after:
@@ -20,6 +22,8 @@ Agent MUST invoke this skill after:
 3. **Writing utility or helper classes** — especially those handling JSON/Object/dynamic types
 4. **Discovering silent failures** — any case where code failed without visible error
 5. **Fixing test false positives** — when test results were wrong, not the code
+
+**Exemption:** Purely cosmetic changes (typo fixes, formatting, comment-only edits) may skip the full review; state a one-line reason instead. When in doubt, run the review.
 
 ## The Five Questions
 
@@ -53,6 +57,7 @@ Map the root cause to a general anti-pattern category:
 | Optimistic Null | Null treated as "not needed" instead of "error" | `if (data != null) { process }` — null data passes through |
 | Cascade Failure | One silent failure triggers another | Empty catch → null param → silent skip → validation bypassed |
 | Separation of Concerns | Trigger config contains execution logic | Copying skill's 5 questions into AGENTS.md instead of just saying 'call it' |
+| Wrapper Bypass | Special path bypasses the unified wrapper, dropping cross-cutting concerns (auth, logging) | Native `fetch(url)` for file preview bypasses request.ts → no Authorization header |
 
 Output format:
 ```
@@ -104,6 +109,8 @@ Decide what to store in the memory system for future sessions:
 - **New memory**: A new pattern/rule that doesn't exist yet
 - **Update memory**: An existing memory that needs refinement
 - **No action**: The lesson is already captured elsewhere
+
+**Merge before create:** Always search the memory system for similar existing memories first. Prefer updating/merging over creating a new one — duplicate memories rot faster than they help.
 
 Output format:
 ```
@@ -157,21 +164,18 @@ The trigger config tells the agent **when** to invoke the skill. The skill itsel
 
 ### ✅ Correct: Config Template for AGENTS.md
 
-`markdown
+```markdown
 ## Post-Fix Review (Mandatory)
 
 After fixing ANY bug (P0-P3), the agent MUST invoke the /post-fix-review skill
-before moving to the next task.
-This skill guides structured self-reflection: root cause analysis, anti-pattern
-identification, generalization, and knowledge capture.
-Do NOT skip this step.
-`
+before moving to the next task. Do NOT skip this step.
+```
 
 Note: The config is **3 lines**. It says "call the skill" — the skill handles the rest.
 
 ### ❌ Anti-Pattern: Copying Skill Content into Config
 
-`markdown
+```markdown
 ## Post-Fix Review (Mandatory)
 
 After fixing ANY bug, answer these 5 questions:
@@ -180,7 +184,7 @@ After fixing ANY bug, answer these 5 questions:
 3. Generalization: Can this be universal?
 4. Specification: Should this become a standard?
 5. Memory Update: What to remember?
-`
+```
 
 **Why this is wrong:**
 - Users copy 15+ lines instead of 3 lines
@@ -199,6 +203,30 @@ This anti-pattern is itself an instance of a broader principle:
 This applies to: Skill configs, API wrappers, CLI tools, middleware setup — any layer where invocation and implementation could be conflated.
 
 ---
+
+## Real-World Case Studies
+
+### Case 1: Silent Age-Validation Bypass (backend, origin of this skill)
+
+A 71-year-old insured passed `max_insured_age=60` validation. Failure chain: empty catch → `insured = null` (no log) → `if (insured != null)` guard skipped the entire validation → silent pass. Anti-patterns: Empty Catch + Silent Skip + Default Masking. The fix produced three universal coding prohibitions.
+
+### Case 2: File Preview Bypasses Auth (frontend, Wrapper Bypass)
+
+**Q1 Root Cause**
+- Code: preview logic used native `fetch(url)` / `window.open(url)`, bypassing the unified request wrapper (`request.ts`) — no `Authorization` header attached
+- Design: preview is a "browser-consumed content stream" scenario (popup text, new-tab PDF) that doesn't fit the JSON response wrapper; the need for auth headers went unnoticed during development
+- Process: preview was tested at the interface-logic level only, never end-to-end in a real logged-in session
+
+**Q2 Anti-Pattern:** Wrapper Bypass — a Separation-of-Concerns variant. The unified wrapper owns the auth cross-cutting concern; the special path (file-stream preview) bypassed the wrapper and leaked it.
+
+**Q3 Generalized Rule:** Any frontend request that bypasses the unified HTTP wrapper (`fetch`/XHR/`window.open` direct link) must explicitly re-attach auth. When a new-tab direct link cannot carry request headers, switch to "authenticated fetch → blob → open via objectURL".
+
+**Q4 Spec Level:** Memory only (scenario rare in that project; not elevated to AGENTS.md).
+
+**Q5 Memory Action:** New memory created.
+
+---
+
 ## Anti-Pattern Reference Library
 
 Common anti-patterns to check against during Q2:
@@ -222,3 +250,7 @@ Common anti-patterns to check against during Q2:
 - **Lossy serialization**: JSON → Object → JSON loses type information
 - **Implicit type coercion**: String "60" vs Integer 60 vs Long 60L
 - **Snapshot staleness**: Cached/snapshotted data doesn't reflect current state
+
+### Cross-Cutting Concern Failures
+- **Wrapper Bypass**: native fetch/XHR/window.open skips the unified HTTP wrapper, dropping auth/logging
+- **New-tab direct link**: URL opened in a new tab where request headers can't be attached; use authenticated fetch → blob → objectURL instead
