@@ -58,6 +58,11 @@ Map the root cause to a general anti-pattern category:
 | Cascade Failure | One silent failure triggers another | Empty catch → null param → silent skip → validation bypassed |
 | Separation of Concerns | Trigger config contains execution logic | Copying skill's 5 questions into AGENTS.md instead of just saying 'call it' |
 | Wrapper Bypass | Special path bypasses the unified wrapper, dropping cross-cutting concerns (auth, logging) | Native `fetch(url)` for file preview bypasses request.ts → no Authorization header |
+| Self-Consistency Masking | Reader and writer share one definition, so a round-trip test can never falsify it | `write(x) → read() == x` passes while a wrong mapping makes real data read as 0 |
+| Asymmetric Filter → False Absence | Two branches that should be equivalent apply different predicates | Language A's lookup requires "value ≈ key", language B's doesn't → "B has no data" concluded wrongly |
+| Unchecked Index Arithmetic | `base + i*stride` computed without bounds on read or write | Out-of-range index silently aliases the neighbouring region — and corrupts it on write |
+| Unconditional Range Write | A helper rewrites a fixed span without asking who owns it | "Set the 4 amount fields" clears a slot holding unrelated user data parked there |
+| Untested Safety Net | A guard is recorded as done without any test that makes it fire | Validation exists but a desynchronised stream raises an opaque error before it runs |
 
 Output format:
 ```
@@ -225,6 +230,90 @@ A 71-year-old insured passed `max_insured_age=60` validation. Failure chain: emp
 
 **Q5 Memory Action:** New memory created.
 
+### Case 3: Round-Trip Green, Data Wrong (Self-Consistency Masking)
+
+A review pass over a module that maps between a binary/serial form and an in-memory form found
+six defects while **every existing test was green** — and one "safety" routine that had been
+recorded as verified had never once been observed to fire. Different symptoms, one family of cause.
+
+Instances, stated generically:
+
+- **Direction**: reader and writer shared one hand-maintained mapping table whose order was wrong.
+  `write(x) → read() == x` passed, while real input decoded to zero / "absent".
+- **Order**: a greedy decomposition iterated that table in *storage* order instead of descending
+  magnitude, producing a value above the field's physical capacity — yet "the total round-trips"
+  stayed green because the wrong split still summed correctly.
+- **False absence**: two branches of an extraction filter that should have been equivalent were not
+  (one demanded the value resemble its key, the other had no such rule). "Branch A yields data,
+  branch B yields none" was concluded as *the data doesn't exist* — and the work was parked waiting
+  for an external input that was never actually needed. The filter was the bug.
+- **Index arithmetic**: `base + i*stride` with no bounds check on either side. An out-of-range index
+  silently read the neighbouring region, and on write, corrupted it.
+- **Range write**: a helper rewrote a fixed span of positions unconditionally, deleting foreign data
+  parked inside that span — a pre-existing test exercised the deletion on every single run.
+- **Unreachable diagnostic**: an illegal field made the parser consume extra bytes and desynchronise
+  the stream, so the guard that existed to explain the problem never ran; the user saw an opaque
+  end-of-stream error instead. The guard was "correct" and useless at the same time.
+
+**Q1 Root Cause**
+- Code: one shared encode/decode definition plus offset derivation without bounds; a range write with no "do I own this position" precondition; a validity check placed *after* the point where a bad field already shifted the stream.
+- Design: correctness was defined as self-consistency (round trip) instead of agreement with a value produced outside the mapping; boundary rules lived in callers rather than in the single place that computes positions.
+- Process: earlier "verified ✅" claims were reused as conclusions instead of re-derived; no rule required a guard to be *triggered* by a test, and no rule required a fix to cover the whole transform (direction **and** order **and** capacity) in one pass — so the fix itself needed a second and third round.
+
+**Q2 Anti-Pattern:** Self-Consistency Masking (primary) + Asymmetric Filter → False Absence + Unchecked Index Arithmetic + Unconditional Range Write + Untested Safety Net; Cascade Failure at the diagnostic layer (the guard existed, but a desynchronised stream meant its message never surfaced).
+
+**Q3 Generalized Rule:** A test whose two sides share a definition cannot falsify that definition.
+For any mapping / codec / derived-offset / filter-pair code, require at least one expectation whose
+value comes from **outside** the code under test (hand-computed from raw bytes, a spec or IDL, a
+second independent implementation), plus per-position expectations and physical-capacity limits.
+Put bounds in the one function that computes positions. Make range writes refuse-or-preserve foreign
+occupants and validate everything before mutating. Treat a guard as unverified until a test makes it
+fire with a message naming the offending field. And before concluding "X is absent", diff the
+predicates of the branch that found data against the branch that didn't.
+
+```
+✅ 正确示例（通用）:
+   assert decode(rawSample).count   == 3          // 期望值来自被测代码之外
+   assert decode(rawSample).pos[0].kind == KIND_A // 逐位置期望，不只比总量
+   assert read(write(x)) == x                     // 往返仍要写，但不能是唯一证据
+   assertRaises(() => write(x, overCapacity))     // 超物理上限必须拒绝，而不是写出非法值
+   offsetOf(i) { require(0 <= i < count) }        // 边界只存在于唯一一处
+   assertRaises(() => parse(corruptInput))        // 安全网必须有"真的会触发"的负向测试
+   assert branchA.predicate == branchB.predicate  // 平行分支的判据等价性本身要被断言
+
+❌ 错误示例（通用）:
+   assert read(write(x)) == x                     // 表反了也绿
+   assert total(decode(sample)) == expectedTotal  // 顺序/容量错误互相抵消，总量照样对
+   if (0 <= i < count) write(base + i*stride, v)  // 校验散在调用方，写入函数仍然敞开
+   for p in span: write(p, value)                 // 无条件覆写 → 删掉别人停在该位置的数据
+   # guard 存在，但没有任何测试让它触发过
+   # "B 分支取不到" 被当成 "数据不存在"，从没比较过两个分支的判据
+```
+
+适用范围（发散，不限项目形态）：序列化/反序列化、配置读写编码、单位/币种/时区换算、
+ORM 与 DTO 映射、多语言与多区域查表、协议与文件格式解析、分页/游标/分片路由的下标计算、
+批量"整体保存"接口、ETL 的平行分支、白名单/黑名单与规则引擎，以及任何"由被测代码自己生成测试夹具"的场景。
+
+**Q4 Spec Level:** Checklist + anti-pattern library (this file). Criteria all met: it recurred three
+times inside a single session, it is the path of least resistance to write (round-trip assertions are
+cheap), and the consequence is silent. Where a repo has a mapping/codec layer, the "external truth +
+per-position + capacity" rule also deserves a repo-level standard line.
+
+**Q5 Memory Action:** Update the existing acceptance-gate memory rather than create a new one
+(merge-before-create): round-trip cannot prove direction; self-consistency also hides ordering and
+capacity errors; unconditional range writes delete data parked in the span; a guard without a
+negative test is unverified; and "absent" requires comparing branch predicates first.
+
+**The Meta-Lesson**
+
+> **Green tests prove the code agrees with itself. They do not prove it agrees with reality.**
+
+The same trap appears whenever the assertion and the thing it checks are generated from one source:
+fixtures produced by the code under test, expected values copied from actual output, a schema
+validated against itself, or a migration tested by round-tripping the same buggy mapping. When the
+author of the expectation and the author of the implementation are the same definition, add a second,
+independent source of truth — or the test is decoration.
+
 ---
 
 ## Anti-Pattern Reference Library
@@ -254,3 +343,27 @@ Common anti-patterns to check against during Q2:
 ### Cross-Cutting Concern Failures
 - **Wrapper Bypass**: native fetch/XHR/window.open skips the unified HTTP wrapper, dropping auth/logging
 - **New-tab direct link**: URL opened in a new tab where request headers can't be attached; use authenticated fetch → blob → objectURL instead
+
+### Verification-Design Failures
+These are defects in *how correctness was evidenced*, not in the production code — which is why the
+suite stays green while the behaviour is wrong.
+
+- **Round-trip-only evidence**: reader and writer share one definition, so `read(write(x)) == x`
+  can never falsify it. Fix: add an expectation sourced outside the code (raw bytes, spec, second impl).
+- **Aggregate hides decomposition**: only a total/sum is asserted, so an ordering or capacity error in
+  one component is cancelled out by another. Fix: assert per-position / per-field expectations.
+- **Asymmetric parallel branches**: two paths that should apply the same predicate don't, and the
+  stricter one reports "nothing found" — which gets recorded as "the data doesn't exist".
+  Fix: assert the predicates are equivalent before trusting an absence conclusion.
+- **Bounds living in callers**: the offset/position arithmetic itself accepts any index; every caller
+  must remember to check, and one forgets (usually the write path). Fix: one checked accessor.
+- **Unconditional range write**: a helper rewrites a fixed span without checking who owns those
+  positions, destroying parked data — sometimes driven by a long-passing test that performs the
+  deletion on every run. Fix: refuse-or-preserve, and validate all before mutating.
+- **Guard with no triggering test**: a validator is marked done because it exists. Nobody has ever
+  seen it fire, so its placement and its message are both unverified. Fix: negative test per rule.
+- **Diagnostic placed downstream of the desynchroniser**: an illegal field shifts the parse position
+  before the check runs, so the user gets an opaque generic error instead of the specific one.
+  Fix: validate at the point of consumption, not after.
+- **Expectation copied from actual output**: golden files / fixtures generated by the code under test,
+  which freezes whatever the current behaviour is — including bugs.
